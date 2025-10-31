@@ -1,0 +1,102 @@
+#define BLYNK_TEMPLATE_ID "TMPL6LRTc1Hzb"
+#define BLYNK_TEMPLATE_NAME "doanchuyennganh"
+#define sensor 34
+#define relay 25
+#define dhttype DHT11
+#define DHTPIN 14
+
+#include <WiFi.h>
+#include <BlynkSimpleEsp32.h>
+#include <DHT.h>
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+
+//setup wifi
+char ssid[] = "YOUR_WIFI";
+char pass[] = "YOUR_PASSWORD";
+char auth[] = "YOUR_BLYNK_TOKEN";
+LiquidCrystal_I2C lcd(0x27 ,16 ,2);
+DHT dht(DHTPIN, dhttype);
+// trang thai
+bool automode = true;    
+bool bom = false;  
+// nhan tin hieu tu dong/ thu cong tu app
+BLYNK_WRITE(V3) {
+  automode = param.asInt();  // 1 = Auto, 0 = Manual 
+}
+
+
+// nhan tin hien bat/tat bom theo thu cong
+BLYNK_WRITE(V4) 
+{
+  if (!automode) 
+  { // chi dung khi chuyen sang che do thu cong
+    bom = param.asInt();
+    digitalWrite(relay, bom ? HIGH : LOW);
+  }
+}
+void setup() {
+  // put your setup code here, to run once:
+Blynk.begin(auth, ssid, pass);
+Serial.begin(115200);
+dht.begin();
+lcd.init();
+pinMode(relay, OUTPUT);
+pinMode(sensor, INPUT);
+lcd.backlight();
+lcd.setCursor(0,0);
+lcd.print("Connecting...");
+delay(500);
+lcd.clear();
+lcd.print("Connected ");
+delay(500);
+lcd.clear();
+}
+
+
+
+
+void loop() {
+  // put your main code here, to run repeatedly:
+Blynk.run();
+//do nhiet do va do am moi truong
+float temp = dht.readTemperature();
+float hum  = dht.readHumidity();
+int value = analogRead(sensor); //do do am dat
+int percent = map(value, 4095 ,0,0,100);
+ // Gửi lên Blynk app
+Blynk.virtualWrite(V0, temp);
+Blynk.virtualWrite(V1, hum);
+Blynk.virtualWrite(V2, percent);
+  Serial.print("Temp: "); Serial.print(temp); Serial.print(" °C, ");
+  Serial.print("Hum: "); Serial.print(hum); Serial.print(" %, ");
+  Serial.print("Soil: "); Serial.print(percent); Serial.println(" %");
+lcd.clear();
+lcd.setCursor(0,0);
+lcd.print("T=");
+lcd.print(temp,1);
+lcd.print(char(223));
+lcd.print("C ");
+lcd.print("H=");
+lcd.print(hum,1);
+lcd.print("%   ");
+lcd.setCursor(0, 1);
+lcd.print("Do am dat= ");
+lcd.print(percent);
+lcd.print("%    ");
+
+if (automode)
+{
+if ( !bom && percent < 45)
+{
+  bom = true;
+  digitalWrite(relay, HIGH);
+}
+else if( bom && percent >55)
+{
+  bom = false;
+  digitalWrite(relay,LOW);
+}
+}
+delay(2000);
+}
